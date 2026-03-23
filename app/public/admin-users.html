@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>User Management</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid d-flex justify-content-between">
+    <span class="navbar-brand">Mini HR - User Management</span>
+    <div class="d-flex gap-2">
+      <a href="/" class="btn btn-outline-light btn-sm">Dashboard</a>
+      <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-5">
+
+  <div class="row">
+    <div class="col-md-6">
+      <div class="card p-3 mb-4">
+        <h5>Create User</h5>
+        <input id="u" class="form-control mb-2" placeholder="username">
+        <input id="p" class="form-control mb-2" placeholder="password">
+        <select id="r" class="form-select mb-2">
+          <option value="employee">employee</option>
+          <option value="admin">admin</option>
+        </select>
+        <input id="l" class="form-control mb-2" placeholder="annual leave" value="25">
+        <button onclick="createUser()" class="btn btn-success">Create</button>
+        <div id="msg" class="mt-2 text-danger"></div>
+      </div>
+    </div>
+
+    <div class="col-md-6">
+      <div class="card p-3 mb-4">
+        <h5>Upload Payslip</h5>
+        <select id="payslipUser" class="form-select mb-2"></select>
+        <input id="payslipFile" type="file" class="form-control mb-2">
+        <button onclick="uploadPayslip()" class="btn btn-primary">Upload</button>
+        <div id="uploadMsg" class="mt-2 text-danger"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card p-3 mb-4">
+    <h5>Users</h5>
+    <table class="table table-bordered bg-white">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>Role</th>
+          <th>Annual leave</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="list"></tbody>
+    </table>
+  </div>
+
+  <div class="card p-3">
+    <h5>Payslips</h5>
+    <table class="table table-bordered bg-white">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>File</th>
+          <th>Uploaded</th>
+          <th>Download</th>
+        </tr>
+      </thead>
+      <tbody id="payslipList"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+async function loadUsers(){
+  const r = await fetch('/api/users');
+  const data = await r.json();
+
+  const el = document.getElementById('list');
+  const sel = document.getElementById('payslipUser');
+
+  el.innerHTML = '';
+  sel.innerHTML = '';
+
+  data.forEach(u => {
+    el.innerHTML += `
+      <tr>
+        <td>${u.id}</td>
+        <td>${u.username}</td>
+        <td>${u.role}</td>
+        <td>${u.annual_leave}</td>
+        <td>
+          <button onclick="delUser(${u.id})" class="btn btn-danger btn-sm">Delete</button>
+        </td>
+      </tr>
+    `;
+
+    sel.innerHTML += `<option value="${u.username}">${u.username}</option>`;
+  });
+}
+
+async function createUser(){
+  const r = await fetch('/api/users', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      username: document.getElementById('u').value,
+      password: document.getElementById('p').value,
+      role: document.getElementById('r').value,
+      annual_leave: document.getElementById('l').value
+    })
+  });
+
+  if(r.ok){
+    document.getElementById('msg').innerHTML = '<span class="text-success">User created</span>';
+    loadUsers();
+  }else{
+    const e = await r.json();
+    document.getElementById('msg').innerText = e.error || 'Error';
+  }
+}
+
+async function delUser(id){
+  const r = await fetch('/api/users/' + id, { method:'DELETE' });
+  const data = await r.json().catch(() => ({}));
+  if(!r.ok){
+    alert(data.error || 'Delete failed');
+    return;
+  }
+  loadUsers();
+}
+
+async function uploadPayslip(){
+  const formData = new FormData();
+  formData.append('username', document.getElementById('payslipUser').value);
+  const fileInput = document.getElementById('payslipFile');
+
+  if(!fileInput.files.length){
+    document.getElementById('uploadMsg').innerText = 'Choose a file first';
+    return;
+  }
+
+  formData.append('payslip', fileInput.files[0]);
+
+  const r = await fetch('/api/payslips/upload', {
+    method:'POST',
+    body: formData
+  });
+
+  if(r.ok){
+    document.getElementById('uploadMsg').innerHTML = '<span class="text-success">Payslip uploaded</span>';
+    loadPayslips();
+  }else{
+    const e = await r.json();
+    document.getElementById('uploadMsg').innerText = e.error || 'Upload failed';
+  }
+}
+
+async function loadPayslips(){
+  const r = await fetch('/api/payslips');
+  const data = await r.json();
+
+  const el = document.getElementById('payslipList');
+  el.innerHTML = '';
+
+  data.forEach(p => {
+    el.innerHTML += `
+      <tr>
+        <td>${p.id}</td>
+        <td>${p.username}</td>
+        <td>${p.original_name}</td>
+        <td>${p.uploaded_at}</td>
+        <td><a href="/api/payslips/${p.id}/download" class="btn btn-primary btn-sm">Download</a></td>
+      </tr>
+    `;
+  });
+}
+
+loadUsers();
+loadPayslips();
+</script>
+
+</body>
+</html>

@@ -1,329 +1,266 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>Mini HR Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.css" rel="stylesheet">
-  <style>
-    body { background: #f8f9fa; }
-    .card { border-radius: 14px; }
-    pre.json-box {
-      background: #111827;
-      color: #e5e7eb;
-      padding: 12px;
-      border-radius: 10px;
-      min-height: 120px;
-      white-space: pre-wrap;
-    }
-    #calendar {
-      background: #fff;
-      padding: 10px;
-      border-radius: 14px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>Creumgroup SHPK</title>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+<link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css' rel='stylesheet'>
+<script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 </head>
-<body>
-  <nav class="navbar navbar-dark bg-dark">
-    <div class="container-fluid">
-      <span class="navbar-brand mb-0 h1">Mini HR</span>
-      <button class="btn btn-outline-light btn-sm" onclick="logout()">Logout</button>
-    </div>
-  </nav>
 
-  <div class="container my-4">
-    <div class="row g-3 mb-3">
-      <div class="col-md-4">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5>Logged User</h5>
-            <pre id="me" class="json-box"></pre>
-          </div>
-        </div>
+<body class="bg-light">
+
+<nav class="navbar navbar-dark bg-dark">
+  <div class="container-fluid d-flex justify-content-between">
+    <span class="navbar-brand">Creumgroup SHPK</span>
+    <div class="d-flex gap-2">
+      <a href="/admin-users.html" class="btn btn-outline-light btn-sm" id="manageUsersBtn">Manage users</a>
+      <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
+    </div>
+  </div>
+</nav>
+
+<div class="container py-4">
+
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body" id="userBox"></div>
       </div>
-      <div class="col-md-4">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5>Leave Balance</h5>
-            <pre id="balance" class="json-box"></pre>
-          </div>
-        </div>
-      </div>
-      <div class="col-md-4" id="adminExportBox" style="display:none;">
-        <div class="card shadow-sm">
-          <div class="card-body">
-            <h5>Reports</h5>
-            <a href="/export.csv" class="btn btn-success">Export CSV</a>
-          </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body" id="statsBox">
+          <h5>Balance</h5>
+          <div>Loading...</div>
         </div>
       </div>
     </div>
-
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h5>Request Leave</h5>
-        <div class="row g-2">
-          <div class="col-md-4">
-            <label class="form-label">Start Date</label>
-            <input id="start_date" type="date" class="form-control">
-          </div>
-          <div class="col-md-4">
-            <label class="form-label">End Date</label>
-            <input id="end_date" type="date" class="form-control">
-          </div>
-          <div class="col-md-4 d-flex align-items-end">
-            <button class="btn btn-primary w-100" onclick="requestLeave()">Submit Request</button>
-          </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body">
+          <h5>Payslips</h5>
+          <div id="payslipMiniBox">Loading...</div>
         </div>
-        <div id="requestMsg" class="mt-3"></div>
-      </div>
-    </div>
-
-    <div class="card shadow-sm mb-3">
-      <div class="card-body">
-        <h5>Leave Requests</h5>
-        <div class="table-responsive">
-          <table class="table table-bordered table-striped align-middle">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>User</th>
-                <th>Start</th>
-                <th>End</th>
-                <th>Days</th>
-                <th>Status</th>
-                <th id="actionHead" style="display:none;">Action</th>
-              </tr>
-            </thead>
-            <tbody id="leavesTable"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card shadow-sm mb-3" id="usersBox" style="display:none;">
-      <div class="card-body">
-        <h5>Admin - Create User</h5>
-        <div class="row g-2">
-          <div class="col-md-3">
-            <input id="new_username" class="form-control" placeholder="username">
-          </div>
-          <div class="col-md-3">
-            <input id="new_password" class="form-control" placeholder="password">
-          </div>
-          <div class="col-md-2">
-            <input id="new_annual" class="form-control" type="number" placeholder="annual leave" value="25">
-          </div>
-          <div class="col-md-2">
-            <select id="new_role" class="form-select">
-              <option value="employee">employee</option>
-              <option value="admin">admin</option>
-            </select>
-          </div>
-          <div class="col-md-2">
-            <button class="btn btn-success w-100" onclick="createUser()">Create</button>
-          </div>
-        </div>
-        <div id="userMsg" class="mt-3"></div>
-
-        <hr>
-        <h5>Admin - Users</h5>
-        <div class="table-responsive">
-          <table class="table table-bordered table-striped align-middle">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Username</th>
-                <th>Role</th>
-                <th>Annual Leave</th>
-                <th>Delete</th>
-              </tr>
-            </thead>
-            <tbody id="usersTable"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <div class="card shadow-sm">
-      <div class="card-body">
-        <h5>Approved Leave Calendar</h5>
-        <div id="calendar"></div>
       </div>
     </div>
   </div>
 
-  <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.15/index.global.min.js"></script>
-  <script>
-    let currentUser = null;
-    let calendar = null;
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5>Request Leave</h5>
 
-    function showMsg(id, msg, type='info') {
-      document.getElementById(id).innerHTML = `<div class="alert alert-${type} mb-0">${msg}</div>`;
-    }
+      <div class="row">
+        <div class="col">
+          <input type="date" id="start" class="form-control">
+        </div>
+        <div class="col">
+          <input type="date" id="end" class="form-control">
+        </div>
+        <div class="col">
+          <button onclick="requestLeave()" class="btn btn-primary w-100">Submit</button>
+        </div>
+      </div>
 
-    async function api(url, options = {}) {
-      const res = await fetch(url, options);
-      const contentType = res.headers.get('content-type') || '';
-      let data = contentType.includes('application/json') ? await res.json() : await res.text();
-      if (!res.ok) throw data;
-      return data;
-    }
+      <div id="msg" class="mt-2 text-danger"></div>
+    </div>
+  </div>
 
-    async function loadMe() {
-      currentUser = await api('/api/me');
-      document.getElementById('me').textContent = JSON.stringify(currentUser, null, 2);
+  <div class="card mb-4">
+    <div class="card-body">
+      <h5>Leave Requests</h5>
 
-      if (currentUser.role === 'admin') {
-        document.getElementById('usersBox').style.display = '';
-        document.getElementById('adminExportBox').style.display = '';
-        document.getElementById('actionHead').style.display = '';
-      }
-    }
+      <table class="table table-striped" id="leaveTable">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>User</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Days</th>
+            <th>Status</th>
+            <th id="actionHead">Action</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
 
-    async function loadBalance() {
-      const balance = await api('/api/balance');
-      document.getElementById('balance').textContent = JSON.stringify(balance, null, 2);
-    }
+  <div class="card">
+    <div class="card-body">
+      <h5>Leave Calendar</h5>
+      <div id="calendar"></div>
+    </div>
+  </div>
 
-    async function loadLeaves() {
-      const leaves = await api('/api/leaves');
-      const tbody = document.getElementById('leavesTable');
-      tbody.innerHTML = '';
+</div>
 
-      for (const l of leaves) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${l.id}</td>
-          <td>${l.username}</td>
-          <td>${l.start_date}</td>
-          <td>${l.end_date}</td>
-          <td>${l.days}</td>
-          <td>${l.status}</td>
-          ${currentUser.role === 'admin' ? `<td>${actionButtons(l)}</td>` : ''}
-        `;
-        tbody.appendChild(tr);
-      }
-    }
+<script>
+let currentUser = null;
+let calendar = null;
 
-    function actionButtons(leave) {
-      if (leave.status !== 'pending') return '-';
-      return `
-        <button class="btn btn-sm btn-success me-1" onclick="approveLeave(${leave.id})">Approve</button>
-        <button class="btn btn-sm btn-danger" onclick="rejectLeave(${leave.id})">Reject</button>
+async function loadDashboard(){
+  const r = await fetch('/api/me');
+  if(!r.ok){
+    window.location='/login.html';
+    return;
+  }
+
+  currentUser = await r.json();
+
+  document.getElementById("userBox").innerHTML = `
+    <h4>Welcome ${currentUser.username}</h4>
+    <p>Role: ${currentUser.role}</p>
+    <p>Annual leave: ${currentUser.annual_leave}</p>
+  `;
+
+  if(currentUser.role !== 'admin'){
+    document.getElementById("actionHead").style.display='none';
+    document.getElementById("manageUsersBtn").style.display='none';
+  }
+
+  loadStats();
+  loadPayslipMini();
+  loadLeaves();
+  loadCalendar();
+}
+
+async function loadStats(){
+  const r = await fetch('/api/stats');
+  const s = await r.json();
+
+  document.getElementById("statsBox").innerHTML = `
+    <h5>Balance</h5>
+    <p><strong>Annual leave:</strong> ${s.annual_leave}</p>
+    <p><strong>Approved days:</strong> ${s.approved_days}</p>
+    <p><strong>Remaining leave:</strong> ${s.remaining_leave}</p>
+  `;
+}
+
+async function loadPayslipMini(){
+  const r = await fetch('/api/payslips');
+  const data = await r.json();
+
+  if(!data.length){
+    document.getElementById("payslipMiniBox").innerHTML = `<small>No payslips uploaded yet</small>`;
+    return;
+  }
+
+  const top = data.slice(0,3);
+  let html = '<ul class="mb-0">';
+  for(const p of top){
+    html += `<li><a href="/api/payslips/${p.id}/download">${p.original_name}</a></li>`;
+  }
+  html += '</ul>';
+
+  document.getElementById("payslipMiniBox").innerHTML = html;
+}
+
+async function loadLeaves(){
+  const r = await fetch('/api/leaves');
+  const data = await r.json();
+
+  let html = "";
+
+  for(const l of data){
+    let badge = '';
+    if(l.status === 'approved') badge = '<span class="badge bg-success">approved</span>';
+    if(l.status === 'pending') badge = '<span class="badge bg-warning text-dark">pending</span>';
+    if(l.status === 'rejected') badge = '<span class="badge bg-danger">rejected</span>';
+
+    html += `
+      <tr>
+        <td>${l.id}</td>
+        <td>${l.username}</td>
+        <td>${l.start_date}</td>
+        <td>${l.end_date}</td>
+        <td>${l.days}</td>
+        <td>${badge}</td>
+        <td>
+    `;
+
+    if(currentUser.role === 'admin' && l.status === 'pending'){
+      html += `
+        <button onclick="approve(${l.id})" class="btn btn-success btn-sm">Approve</button>
+        <button onclick="reject(${l.id})" class="btn btn-danger btn-sm">Reject</button>
       `;
     }
 
-    async function requestLeave() {
-      const start_date = document.getElementById('start_date').value;
-      const end_date = document.getElementById('end_date').value;
+    html += "</td></tr>";
+  }
 
-      try {
-        const data = await api('/api/leave', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ start_date, end_date })
-        });
-        showMsg('requestMsg', `Request submitted. Calculated days: ${data.days}`, 'success');
-        await refreshAll();
-      } catch (e) {
-        showMsg('requestMsg', e.error || 'Request failed', 'danger');
-      }
-    }
+  document.querySelector("#leaveTable tbody").innerHTML = html;
+}
 
-    async function approveLeave(id) {
-      await api(`/api/leave/${id}/approve`, { method: 'POST' });
-      await refreshAll();
-    }
+async function loadCalendar(){
+  const r = await fetch('/api/leaves');
+  const data = await r.json();
 
-    async function rejectLeave(id) {
-      await api(`/api/leave/${id}/reject`, { method: 'POST' });
-      await refreshAll();
-    }
+  const events = data.map(x => ({
+    title: x.username + " (" + x.status + ")",
+    start: x.start_date,
+    end: addOneDay(x.end_date),
+    color: x.status === 'approved' ? 'green' :
+           x.status === 'pending' ? 'orange' : 'red'
+  }));
 
-    async function loadUsers() {
-      if (!currentUser || currentUser.role !== 'admin') return;
-      const users = await api('/api/users');
-      const tbody = document.getElementById('usersTable');
-      tbody.innerHTML = '';
+  if (calendar) {
+    calendar.destroy();
+  }
 
-      for (const u of users) {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${u.id}</td>
-          <td>${u.username}</td>
-          <td>${u.role}</td>
-          <td>${u.annual_leave}</td>
-          <td><button class="btn btn-sm btn-outline-danger" onclick="deleteUser(${u.id})">Delete</button></td>
-        `;
-        tbody.appendChild(tr);
-      }
-    }
+  calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
+    initialView: 'dayGridMonth',
+    height: 500,
+    events: events
+  });
 
-    async function createUser() {
-      const username = document.getElementById('new_username').value;
-      const password = document.getElementById('new_password').value;
-      const annual_leave = document.getElementById('new_annual').value;
-      const role = document.getElementById('new_role').value;
+  calendar.render();
+}
 
-      try {
-        await api('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ username, password, annual_leave, role })
-        });
-        showMsg('userMsg', 'User created successfully', 'success');
-        await loadUsers();
-      } catch (e) {
-        showMsg('userMsg', e.error || 'User creation failed', 'danger');
-      }
-    }
+function addOneDay(dateStr){
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0,10);
+}
 
-    async function deleteUser(id) {
-      try {
-        await api(`/api/users/${id}`, { method: 'DELETE' });
-        await loadUsers();
-      } catch (e) {
-        alert(e.error || 'Delete failed');
-      }
-    }
+async function requestLeave(){
+  const start = document.getElementById("start").value;
+  const end = document.getElementById("end").value;
 
-    async function loadCalendar() {
-      const events = await api('/api/calendar');
+  const r = await fetch('/api/leave', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({start_date:start,end_date:end})
+  });
 
-      if (!calendar) {
-        const el = document.getElementById('calendar');
-        calendar = new FullCalendar.Calendar(el, {
-          initialView: 'dayGridMonth',
-          height: 650,
-          events
-        });
-        calendar.render();
-      } else {
-        calendar.removeAllEvents();
-        calendar.addEventSource(events);
-      }
-    }
+  if(r.ok){
+    document.getElementById("msg").innerHTML =
+      '<span class="text-success">Leave requested</span>';
+    loadStats();
+    loadLeaves();
+    loadCalendar();
+  }else{
+    const e = await r.json();
+    document.getElementById("msg").innerText = e.error;
+  }
+}
 
-    function logout() {
-      window.location = '/logout';
-    }
+async function approve(id){
+  await fetch('/api/leave/'+id+'/approve', {method:'POST'});
+  loadStats();
+  loadLeaves();
+  loadCalendar();
+}
 
-    async function refreshAll() {
-      await loadMe();
-      await loadBalance();
-      await loadLeaves();
-      await loadUsers();
-      await loadCalendar();
-    }
+async function reject(id){
+  await fetch('/api/leave/'+id+'/reject', {method:'POST'});
+  loadLeaves();
+  loadCalendar();
+}
 
-    refreshAll().catch(err => {
-      console.error(err);
-      if (String(err).includes('Login failed') || String(err).includes('Cannot GET')) {
-        window.location = '/login.html';
-      }
-    });
-  </script>
+loadDashboard();
+</script>
+
 </body>
 </html>

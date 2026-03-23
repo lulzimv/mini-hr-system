@@ -1,0 +1,242 @@
+const express = require('express');
+const session = require('express-session');
+const sqlite3 = require('sqlite3').verbose();
+const crypto = require('crypto');
+const path = require('path');
+const multer = require('multer');
+const fs = require('fs');
+
+const app = express();
+const db = new sqlite3.Database('/app/hr.db');
+
+app.set('trust proxy', 1);   // VERY important inside docker / nginx
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.set('trust proxy', 1);
+
+app.use(session({
+  name: 'minihr.sid',
+  secret: 'minihr-super-secret-change-this',
+  resave: false,
+  saveUninitialized: false,
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false,
+    path: '/',
+    maxAge: 1000 * 60 * 60 * 8
+  }
+}));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.use(express.static(path.join(__dirname, 'public')));
+
+
+//
+// ⭐ PAYSLIP STORAGE CONFIG
+//
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = '/app/payslips';
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + "-" + file.originalname);
+  }
+});
+const upload = multer({ storage: storage });
+
+function hashPassword(password) {
+  return crypto.createHash('sha256').update(password).digest('hex');
+}
+
+function auth(req, res, next) {
+  if (!req.session.user) {
+
+    // API request → send JSON
+    if (req.originalUrl.startsWith('/api')) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+
+    // Browser page → redirect
+    return res.redirect('/login.html');
+  }
+
+  next();
+}
+
+app.get('/api/me', auth, (req, res) => {
+  res.json({
+    username: req.session.user.username,
+    role: req.session.user.role,
+    annual_leave: req.session.user.annual_leave
+  });
+});
+
+function adminOnly(req, res, next) {
+  if (!req.session.user || req.session.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Access denied' });
+  }
+  next();
+}
+
+function calculateDays(start, end) {
+  const s = new Date(start);
+  const e = new Date(end);
+  if (isNaN(s) || isNaN(e) || e < s) return 0;
+  return Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1;
+}
+
+db.serialize(() => {
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      role TEXT NOT NULL CHECK(role IN ('admin','employee')),
+      annual_leave INTEGER NOT NULL DEFAULT 25,
+      payslip TEXT
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS leaves (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      start_date TEXT NOT NULL,
+      end_date TEXT NOT NULL,
+      days INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','approved','rejected')),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // ⭐ admin bootstrap
+  db.get(`SELECT * FROM users WHERE username='admin'`, (err, row) => {
+    if (!row) {
+      db.run(
+        `INSERT INTO users (username, password_hash, role, annual_leave)
+         VALUES ('admin', ?, 'admin', 25)`,
+        [hashPassword('admin123')]
+      );
+      console.log("Admin bootstrap user created");
+    }
+  });
+
+});
+
+app.post('/login', (req, res) => {
+  const { username, password } = req.body;
+  const passwordHash = hashPassword(password || '');
+
+  db.get(
+    `SELECT id, username, role, annual_leave
+     FROM users
+     WHERE username = ? AND password_hash = ?`,
+    [username, passwordHash],
+    (err, user) => {
+
+      if (err) return res.status(500).json({ error: 'db error' });
+      if (!user) return res.status(401).json({ error: 'Login failed' });
+
+      req.session.user = user;
+
+      // ⭐ VERY IMPORTANT
+      req.session.save(() => {
+        res.json({ success: true });
+      });
+
+    }
+  );
+});
+
+app.get('/logout', (req, res) => {
+  req.session.destroy(() => res.redirect('/login.html'));
+});
+
+app.get('/', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login.html');
+  }
+  return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+//
+// ⭐ UPLOAD PAYSLIP
+//
+app.post('/api/upload-payslip', auth, adminOnly, upload.single('file'), (req,res)=>{
+  const username = req.body.username;
+  const file = req.file.filename;
+
+  db.run("UPDATE users SET payslip=? WHERE username=?", [file, username]);
+  res.json({status:"uploaded"});
+});
+
+//
+// ⭐ DOWNLOAD PAYSLIP
+//
+app.get('/api/payslip/:username', auth, (req,res)=>{
+  db.get("SELECT payslip FROM users WHERE username=?", [req.params.username], (e,row)=>{
+    if(!row || !row.payslip) return res.send("No payslip");
+    res.download('/app/payslips/'+row.payslip);
+  });
+});
+
+app.post('/api/leave', auth, (req, res) => {
+  const { start_date, end_date } = req.body;
+  const days = calculateDays(start_date, end_date);
+  if (days <= 0) return res.status(400).json({ error: 'Invalid dates' });
+
+  db.run(
+    `INSERT INTO leaves (username, start_date, end_date, days, status)
+     VALUES (?, ?, ?, ?, 'pending')`,
+    [req.session.user.username, start_date, end_date, days],
+    () => res.json({ status: 'requested' })
+  );
+});
+
+app.get('/api/leaves', auth, (req, res) => {
+  db.all(`SELECT * FROM leaves ORDER BY id DESC`, [], (err, rows) => {
+    res.json(rows);
+  });
+});
+
+app.post('/api/leave/:id/approve', auth, adminOnly, (req, res) => {
+  db.run(`UPDATE leaves SET status='approved' WHERE id=?`, [req.params.id]);
+  res.json({status:'approved'});
+});
+
+app.post('/api/leave/:id/reject', auth, adminOnly, (req, res) => {
+  db.run(`UPDATE leaves SET status='rejected' WHERE id=?`, [req.params.id]);
+  res.json({status:'rejected'});
+});
+
+app.get('/api/users', auth, adminOnly, (req,res)=>{
+  db.all(`SELECT id,username,role,annual_leave FROM users`,[],(e,r)=>res.json(r));
+});
+
+app.post('/api/users', auth, adminOnly, (req,res)=>{
+  const {username,password,role,annual_leave} = req.body;
+  db.run(
+    `INSERT INTO users (username,password_hash,role,annual_leave)
+     VALUES (?,?,?,?)`,
+    [username, hashPassword(password), role || 'employee', annual_leave || 25],
+    ()=>res.json({status:'user added'})
+  );
+});
+
+app.delete('/api/users/:id', auth, adminOnly, (req,res)=>{
+  db.run(`DELETE FROM users WHERE id=?`,[req.params.id]);
+  res.json({status:'deleted'});
+});
+
+app.listen(5050,'0.0.0.0',()=>{
+  console.log("Mini HR v4 running");
+});

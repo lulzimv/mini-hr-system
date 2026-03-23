@@ -3,32 +3,52 @@ const session = require('express-session');
 const sqlite3 = require('sqlite3').verbose();
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const db = new sqlite3.Database('/app/hr.db');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.set('trust proxy', 1);
+
 app.use(session({
+  name: 'minihr.sid',
   secret: 'minihr-super-secret-change-this',
   resave: false,
   saveUninitialized: false,
-  cookie: { httpOnly: true, sameSite: 'lax' }
+  proxy: true,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: false,
+    path: '/',
+    maxAge: 1000 * 60 * 60 * 8
+  }
 }));
+
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 function hashPassword(password) {
   return crypto.createHash('sha256').update(password).digest('hex');
 }
 
 function auth(req, res, next) {
-  if (!req.session.user) return res.redirect('/login.html');
+  if (!req.session.user) {
+    if (req.originalUrl.startsWith('/api/')) {
+      return res.status(401).json({ error: 'unauthorized' });
+    }
+    return res.redirect('/login.html');
+  }
   next();
 }
 
 function adminOnly(req, res, next) {
   if (!req.session.user || req.session.user.role !== 'admin') {
-    return res.status(403).json({ error: 'Access denied' });
+    return res.status(403).json({ error: 'forbidden' });
   }
   next();
 }
@@ -37,9 +57,27 @@ function calculateDays(start, end) {
   const s = new Date(start);
   const e = new Date(end);
   if (isNaN(s) || isNaN(e) || e < s) return 0;
-  const diff = Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1;
-  return diff;
+  return Math.floor((e - s) / (1000 * 60 * 60 * 24)) + 1;
 }
+
+const payslipStorage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const dir = '/app/uploads/payslips';
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: function (req, file, cb) {
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, Date.now() + '_' + safeName);
+  }
+});
+
+const upload = multer({
+  storage: payslipStorage,
+  limits: { fileSize: 5 * 1024 * 1024 }
+});
 
 db.serialize(() => {
   db.run(`
@@ -64,27 +102,33 @@ db.serialize(() => {
     )
   `);
 
-  db.get(`SELECT COUNT(*) AS count FROM users`, (err, row) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-    if (row.count === 0) {
-      const stmt = db.prepare(`
-        INSERT INTO users (username, password_hash, role, annual_leave)
-        VALUES (?, ?, ?, ?)
-      `);
-      stmt.run('admin', hashPassword('admin123'), 'admin', 25);
-      stmt.run('user1', hashPassword('user123'), 'employee', 25);
-      stmt.run('user2', hashPassword('user123'), 'employee', 25);
-      stmt.finalize();
-      console.log('Default users created.');
+  db.run(`
+    CREATE TABLE IF NOT EXISTS payslips (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      original_name TEXT NOT NULL,
+      uploaded_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.get(`SELECT * FROM users WHERE username='admin'`, (err, row) => {
+    if (!row) {
+      db.run(
+        `INSERT INTO users (username, password_hash, role, annual_leave)
+         VALUES ('admin', ?, 'admin', 25)`,
+        [hashPassword('admin123')]
+      );
+      console.log('Admin bootstrap user created');
     }
   });
 });
 
-app.get('/api/me', auth, (req, res) => {
-  res.json(req.session.user);
+app.get('/', (req, res) => {
+  if (!req.session.user) {
+    return res.redirect('/login.html');
+  }
+  return res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.post('/login', (req, res) => {
@@ -97,10 +141,14 @@ app.post('/login', (req, res) => {
      WHERE username = ? AND password_hash = ?`,
     [username, passwordHash],
     (err, user) => {
-      if (err) return res.status(500).send('Database error');
-      if (!user) return res.status(401).send('Login failed');
+      if (err) return res.status(500).json({ error: 'db error' });
+      if (!user) return res.status(401).json({ error: 'login failed' });
+
       req.session.user = user;
-      res.redirect('/');
+      req.session.save((e) => {
+        if (e) return res.status(500).json({ error: 'session error' });
+        return res.json({ success: true });
+      });
     }
   );
 });
@@ -109,63 +157,60 @@ app.get('/logout', (req, res) => {
   req.session.destroy(() => res.redirect('/login.html'));
 });
 
-app.get('/', auth, (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-app.get('/api/balance', auth, (req, res) => {
+app.get('/api/me', auth, (req, res) => {
   db.get(
-    `SELECT COALESCE(SUM(days), 0) AS used
-     FROM leaves
-     WHERE username = ? AND status = 'approved'`,
+    `SELECT annual_leave FROM users WHERE username = ?`,
     [req.session.user.username],
     (err, row) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
-      const used = row.used || 0;
-      const annual = req.session.user.annual_leave;
-      const remaining = annual - used;
-      res.json({ annual, used, remaining });
+      res.json({
+        username: req.session.user.username,
+        role: req.session.user.role,
+        annual_leave: row ? row.annual_leave : req.session.user.annual_leave
+      });
+    }
+  );
+});
+
+app.get('/api/stats', auth, (req, res) => {
+  db.get(
+    `SELECT annual_leave FROM users WHERE username = ?`,
+    [req.session.user.username],
+    (err, row) => {
+      const annual = row ? row.annual_leave : 0;
+
+      db.get(
+        `SELECT COALESCE(SUM(days),0) AS approved_days
+         FROM leaves
+         WHERE username = ? AND status = 'approved'`,
+        [req.session.user.username],
+        (e2, row2) => {
+          const approved = row2 ? row2.approved_days : 0;
+          const remaining = annual - approved;
+          res.json({
+            annual_leave: annual,
+            approved_days: approved,
+            remaining_leave: remaining
+          });
+        }
+      );
     }
   );
 });
 
 app.get('/api/leaves', auth, (req, res) => {
-  const isAdmin = req.session.user.role === 'admin';
-  const sql = isAdmin
+  const sql = req.session.user.role === 'admin'
     ? `SELECT * FROM leaves ORDER BY id DESC`
     : `SELECT * FROM leaves WHERE username = ? ORDER BY id DESC`;
-  const params = isAdmin ? [] : [req.session.user.username];
+
+  const params = req.session.user.role === 'admin'
+    ? []
+    : [req.session.user.username];
 
   db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
+    if (err) return res.status(500).json({ error: 'db error' });
     res.json(rows);
   });
 });
-
-app.get('/api/calendar', auth, (req, res) => {
-  const isAdmin = req.session.user.role === 'admin';
-  const sql = isAdmin
-    ? `SELECT id, username, start_date, end_date, status FROM leaves WHERE status = 'approved'`
-    : `SELECT id, username, start_date, end_date, status FROM leaves WHERE username = ? AND status = 'approved'`;
-  const params = isAdmin ? [] : [req.session.user.username];
-
-  db.all(sql, params, (err, rows) => {
-    if (err) return res.status(500).json({ error: 'Database error' });
-    const events = rows.map(r => ({
-      id: r.id,
-      title: `${r.username} (${r.status})`,
-      start: r.start_date,
-      end: addOneDay(r.end_date)
-    }));
-    res.json(events);
-  });
-});
-
-function addOneDay(dateStr) {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString().slice(0, 10);
-}
 
 app.post('/api/leave', auth, (req, res) => {
   const { start_date, end_date } = req.body;
@@ -182,15 +227,15 @@ app.post('/api/leave', auth, (req, res) => {
       if (err || !userRow) return res.status(500).json({ error: 'User lookup failed' });
 
       db.get(
-        `SELECT COALESCE(SUM(days), 0) AS used
+        `SELECT COALESCE(SUM(days),0) AS approved_days
          FROM leaves
          WHERE username = ? AND status = 'approved'`,
         [req.session.user.username],
-        (err2, usedRow) => {
-          if (err2) return res.status(500).json({ error: 'Balance lookup failed' });
+        (e2, usedRow) => {
+          if (e2) return res.status(500).json({ error: 'Balance lookup failed' });
 
-          const used = usedRow.used || 0;
-          const remaining = userRow.annual_leave - used;
+          const approved = usedRow ? usedRow.approved_days : 0;
+          const remaining = userRow.annual_leave - approved;
 
           if (days > remaining) {
             return res.status(400).json({
@@ -214,17 +259,25 @@ app.post('/api/leave', auth, (req, res) => {
 });
 
 app.post('/api/leave/:id/approve', auth, adminOnly, (req, res) => {
-  db.run(`UPDATE leaves SET status = 'approved' WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: 'Update failed' });
-    res.json({ status: 'approved' });
-  });
+  db.run(
+    `UPDATE leaves SET status = 'approved' WHERE id = ?`,
+    [req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Update failed' });
+      res.json({ status: 'approved' });
+    }
+  );
 });
 
 app.post('/api/leave/:id/reject', auth, adminOnly, (req, res) => {
-  db.run(`UPDATE leaves SET status = 'rejected' WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: 'Update failed' });
-    res.json({ status: 'rejected' });
-  });
+  db.run(
+    `UPDATE leaves SET status = 'rejected' WHERE id = ?`,
+    [req.params.id],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'Update failed' });
+      res.json({ status: 'rejected' });
+    }
+  );
 });
 
 app.get('/api/users', auth, adminOnly, (req, res) => {
@@ -232,58 +285,94 @@ app.get('/api/users', auth, adminOnly, (req, res) => {
     `SELECT id, username, role, annual_leave FROM users ORDER BY id ASC`,
     [],
     (err, rows) => {
-      if (err) return res.status(500).json({ error: 'Database error' });
+      if (err) return res.status(500).json({ error: 'db error' });
       res.json(rows);
     }
   );
 });
 
 app.post('/api/users', auth, adminOnly, (req, res) => {
-  const { username, password, annual_leave, role } = req.body;
+  const { username, password, role, annual_leave } = req.body;
+
   if (!username || !password) {
-    return res.status(400).json({ error: 'Username and password required' });
+    return res.status(400).json({ error: 'username and password required' });
   }
 
-  const annual = parseInt(annual_leave, 10) || 25;
   const safeRole = role === 'admin' ? 'admin' : 'employee';
+  const leave = parseInt(annual_leave, 10) || 25;
 
   db.run(
-    `INSERT INTO users (username, password_hash, role, annual_leave)
-     VALUES (?, ?, ?, ?)`,
-    [username, hashPassword(password), safeRole, annual],
+    `INSERT INTO users(username,password_hash,role,annual_leave)
+     VALUES(?,?,?,?)`,
+    [username, hashPassword(password), safeRole, leave],
     function(err) {
-      if (err) return res.status(500).json({ error: 'User insert failed. Maybe username exists.' });
-      res.json({ status: 'user added', id: this.lastID });
+      if (err) return res.status(500).json({ error: 'user insert failed' });
+      res.json({ ok: true, id: this.lastID });
     }
   );
 });
 
 app.delete('/api/users/:id', auth, adminOnly, (req, res) => {
-  if (parseInt(req.params.id, 10) === req.session.user.id) {
-    return res.status(400).json({ error: 'You cannot delete your own account' });
-  }
+  db.get(`SELECT username FROM users WHERE id = ?`, [req.params.id], (err, row) => {
+    if (!row) return res.status(404).json({ error: 'user not found' });
+    if (row.username === req.session.user.username) {
+      return res.status(400).json({ error: 'You cannot delete your own account' });
+    }
 
-  db.run(`DELETE FROM users WHERE id = ?`, [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: 'Delete failed' });
-    res.json({ status: 'user deleted' });
+    db.run(`DELETE FROM users WHERE id = ?`, [req.params.id], function(e2) {
+      if (e2) return res.status(500).json({ error: 'delete failed' });
+      res.json({ ok: true });
+    });
   });
 });
 
-app.get('/export.csv', auth, adminOnly, (req, res) => {
-  db.all(`SELECT * FROM leaves ORDER BY id DESC`, [], (err, rows) => {
-    if (err) return res.status(500).send('Export failed');
+app.post('/api/payslips/upload', auth, adminOnly, upload.single('payslip'), (req, res) => {
+  const username = req.body.username;
 
-    let csv = 'id,username,start_date,end_date,days,status,created_at\n';
-    for (const r of rows) {
-      csv += `${r.id},${r.username},${r.start_date},${r.end_date},${r.days},${r.status},${r.created_at}\n`;
+  if (!username) return res.status(400).json({ error: 'username required' });
+  if (!req.file) return res.status(400).json({ error: 'file required' });
+
+  db.run(
+    `INSERT INTO payslips(username,file_name,original_name)
+     VALUES(?,?,?)`,
+    [username, req.file.filename, req.file.originalname],
+    function(err) {
+      if (err) return res.status(500).json({ error: 'upload failed' });
+      res.json({ ok: true, id: this.lastID });
+    }
+  );
+});
+
+app.get('/api/payslips', auth, (req, res) => {
+  const sql = req.session.user.role === 'admin'
+    ? `SELECT * FROM payslips ORDER BY id DESC`
+    : `SELECT * FROM payslips WHERE username = ? ORDER BY id DESC`;
+
+  const params = req.session.user.role === 'admin'
+    ? []
+    : [req.session.user.username];
+
+  db.all(sql, params, (err, rows) => {
+    if (err) return res.status(500).json({ error: 'db error' });
+    res.json(rows);
+  });
+});
+
+app.get('/api/payslips/:id/download', auth, (req, res) => {
+  db.get(`SELECT * FROM payslips WHERE id = ?`, [req.params.id], (err, row) => {
+    if (!row) return res.status(404).send('Not found');
+
+    if (req.session.user.role !== 'admin' && row.username !== req.session.user.username) {
+      return res.status(403).send('Forbidden');
     }
 
-    res.setHeader('Content-Type', 'text/csv');
-    res.setHeader('Content-Disposition', 'attachment; filename="leave-report.csv"');
-    res.send(csv);
+    const filePath = path.join(__dirname, 'uploads', 'payslips', row.file_name);
+    if (!fs.existsSync(filePath)) return res.status(404).send('File missing');
+
+    return res.download(filePath, row.original_name);
   });
 });
 
 app.listen(5050, '0.0.0.0', () => {
-  console.log('Mini HR v3 running on port 5050');
+  console.log('Mini HR v7 running on port 5050');
 });
