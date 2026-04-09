@@ -19,87 +19,161 @@
 
 <div class="container py-5">
 
-  <div class="row">
-    <div class="col-md-6">
-      <div class="card p-3 mb-4">
-        <h5>Create User</h5>
-        <input id="u" class="form-control mb-2" placeholder="username">
-        <input id="p" class="form-control mb-2" placeholder="password">
-        <select id="r" class="form-select mb-2">
-          <option value="employee">employee</option>
-          <option value="admin">admin</option>
-        </select>
-        <input id="l" class="form-control mb-2" placeholder="annual leave" value="25">
-        <button onclick="createUser()" class="btn btn-success">Create</button>
-        <div id="msg" class="mt-2 text-danger"></div>
-      </div>
-    </div>
+<div class="row">
+<div class="col-md-6">
+<div class="card p-3 mb-4">
+<h5>Create User</h5>
 
-    <div class="col-md-6">
-      <div class="card p-3 mb-4">
-        <h5>Upload Payslip</h5>
-        <select id="payslipUser" class="form-select mb-2"></select>
-        <input id="payslipFile" type="file" class="form-control mb-2">
-        <button onclick="uploadPayslip()" class="btn btn-primary">Upload</button>
-        <div id="uploadMsg" class="mt-2 text-danger"></div>
-      </div>
-    </div>
-  </div>
+<input id="u" class="form-control mb-2" placeholder="username">
+<input id="p" type="password" class="form-control mb-2" placeholder="password">
 
-  <div class="card p-3 mb-4">
-    <h5>Users</h5>
-    <table class="table table-bordered bg-white">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>User</th>
-          <th>Role</th>
-          <th>Annual leave</th>
-          <th>Action</th>
-        </tr>
-      </thead>
-      <tbody id="list"></tbody>
-    </table>
-  </div>
+<select id="r" class="form-select mb-2">
+<option value="employee">employee</option>
+<option value="admin">admin</option>
+</select>
 
-  <div class="card p-3">
-    <h5>Payslips</h5>
-    <table class="table table-bordered bg-white">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>User</th>
-          <th>File</th>
-          <th>Uploaded</th>
-          <th>Download</th>
-        </tr>
-      </thead>
-      <tbody id="payslipList"></tbody>
-    </table>
-  </div>
+<input id="l" class="form-control mb-2" placeholder="annual leave" value="20">
+<input id="sl" class="form-control mb-2" placeholder="sick leave" value="10">
+
+<input id="sb" class="form-control mb-2" placeholder="salary bruto">
+<input id="sn" class="form-control mb-2" placeholder="salary neto">
+
+<button onclick="createUser()" class="btn btn-success">Create</button>
+<div id="msg" class="mt-2 text-danger"></div>
+</div>
+</div>
+
+<div class="col-md-6">
+<div class="card p-3 mb-4">
+<h5>Upload Payslip</h5>
+<select id="payslipUser" class="form-select mb-2"></select>
+<input id="payslipFile" type="file" class="form-control mb-2">
+<button onclick="uploadPayslip()" class="btn btn-primary">Upload</button>
+<div id="uploadMsg" class="mt-2 text-danger"></div>
+</div>
+</div>
+</div>
+
+<div class="card p-3 mb-4">
+<h5>Users</h5>
+<table class="table table-bordered bg-white">
+<thead>
+<tr>
+<th>ID</th>
+<th>User</th>
+<th>Role</th>
+<th>Annual</th>
+<th>Sick</th>
+<th>Bruto</th>
+<th>Neto</th>
+<th>Action</th>
+</tr>
+</thead>
+<tbody id="list"></tbody>
+</table>
+</div>
+
+<div class="card p-3">
+<h5>Payslips</h5>
+<table class="table table-bordered bg-white">
+<thead>
+<tr>
+<th>ID</th>
+<th>User</th>
+<th>File</th>
+<th>Uploaded</th>
+<th>Download</th>
+</tr>
+</thead>
+<tbody id="payslipList"></tbody>
+</table>
+</div>
 
 </div>
 
+<div class="modal fade" id="editUserModal">
+<div class="modal-dialog">
+<div class="modal-content">
+
+<div class="modal-header">
+<h5>Edit User</h5>
+<button class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body">
+
+<input type="hidden" id="editId">
+
+<label class="mt-2">Username</label>
+<input id="editUsername" class="form-control">
+
+<label class="mt-2">Role</label>
+<select id="editRole" class="form-select">
+<option value="employee">employee</option>
+<option value="admin">admin</option>
+</select>
+
+<label class="mt-2">Annual leave</label>
+<input id="editLeave" class="form-control">
+
+<label class="mt-2">Sick leave</label>
+<input id="editSick" class="form-control">
+
+<label class="mt-2">Salary bruto</label>
+<input id="editBruto" class="form-control">
+
+<label class="mt-2">Salary neto</label>
+<input id="editNeto" class="form-control">
+
+<label class="mt-2">New password</label>
+<input id="editPassword" type="password" class="form-control">
+
+</div>
+
+<div class="modal-footer">
+<button onclick="saveEditUser()" class="btn btn-success">Save</button>
+</div>
+
+</div>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
+
 async function loadUsers(){
-  const r = await fetch('/api/users');
+  const r = await fetch('/api/users', { credentials:'include' });
   const data = await r.json();
 
-  const el = document.getElementById('list');
+  const list = document.getElementById('list');
   const sel = document.getElementById('payslipUser');
 
-  el.innerHTML = '';
+  list.innerHTML = '';
   sel.innerHTML = '';
 
   data.forEach(u => {
-    el.innerHTML += `
+    const safe = u.username.replace(/'/g, '');
+
+    list.innerHTML += `
       <tr>
         <td>${u.id}</td>
         <td>${u.username}</td>
         <td>${u.role}</td>
         <td>${u.annual_leave}</td>
+        <td>${u.sick_leave}</td>
+        <td>${u.salary_bruto}</td>
+        <td>${u.salary_neto}</td>
         <td>
-          <button onclick="delUser(${u.id})" class="btn btn-danger btn-sm">Delete</button>
+          <button class="btn btn-primary btn-sm"
+            onclick="openEditUser(${u.id},'${safe}','${u.role}',${u.annual_leave},${u.sick_leave},${u.salary_bruto},${u.salary_neto})">
+            Edit
+          </button>
+
+          <button class="btn btn-danger btn-sm"
+            onclick="delUser(${u.id})">
+            Delete
+          </button>
         </td>
       </tr>
     `;
@@ -108,65 +182,120 @@ async function loadUsers(){
   });
 }
 
+function openEditUser(id, username, role, leave, sick, bruto, neto){
+  document.getElementById("editId").value = id;
+  document.getElementById("editUsername").value = username;
+  document.getElementById("editRole").value = role;
+  document.getElementById("editLeave").value = leave;
+  document.getElementById("editSick").value = sick;
+  document.getElementById("editBruto").value = bruto;
+  document.getElementById("editNeto").value = neto;
+  document.getElementById("editPassword").value = "";
+
+  new bootstrap.Modal(document.getElementById('editUserModal')).show();
+}
+
+async function saveEditUser(){
+  const payload = {
+    id: document.getElementById("editId").value,
+    username: document.getElementById("editUsername").value,
+    role: document.getElementById("editRole").value,
+    annual_leave: document.getElementById("editLeave").value,
+    sick_leave: document.getElementById("editSick").value,
+    salary_bruto: document.getElementById("editBruto").value,
+    salary_neto: document.getElementById("editNeto").value
+  };
+
+  const pass = document.getElementById("editPassword").value;
+  if(pass.trim() !== ""){
+    payload.password = pass;
+  }
+
+  const r = await fetch('/api/users/update', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    credentials:'include',
+    body: JSON.stringify(payload)
+  });
+
+  if(r.ok){
+    loadUsers();
+
+    const modalEl = document.getElementById('editUserModal');
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if(modal) modal.hide();
+  } else {
+    alert("Update failed");
+  }
+}
+
 async function createUser(){
   const r = await fetch('/api/users', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
+    credentials:'include',
     body: JSON.stringify({
       username: document.getElementById('u').value,
       password: document.getElementById('p').value,
       role: document.getElementById('r').value,
-      annual_leave: document.getElementById('l').value
+      annual_leave: document.getElementById('l').value,
+      sick_leave: document.getElementById('sl').value,
+      salary_bruto: document.getElementById('sb').value,
+      salary_neto: document.getElementById('sn').value
     })
   });
 
   if(r.ok){
     document.getElementById('msg').innerHTML = '<span class="text-success">User created</span>';
     loadUsers();
-  }else{
-    const e = await r.json();
-    document.getElementById('msg').innerText = e.error || 'Error';
+  } else {
+    document.getElementById('msg').innerHTML = '<span class="text-danger">Error creating user</span>';
   }
 }
 
 async function delUser(id){
-  const r = await fetch('/api/users/' + id, { method:'DELETE' });
-  const data = await r.json().catch(() => ({}));
-  if(!r.ok){
-    alert(data.error || 'Delete failed');
-    return;
-  }
-  loadUsers();
-}
+  if(!confirm("Delete user?")) return;
 
-async function uploadPayslip(){
-  const formData = new FormData();
-  formData.append('username', document.getElementById('payslipUser').value);
-  const fileInput = document.getElementById('payslipFile');
-
-  if(!fileInput.files.length){
-    document.getElementById('uploadMsg').innerText = 'Choose a file first';
-    return;
-  }
-
-  formData.append('payslip', fileInput.files[0]);
-
-  const r = await fetch('/api/payslips/upload', {
-    method:'POST',
-    body: formData
+  const r = await fetch('/api/users/' + id, {
+    method:'DELETE',
+    credentials:'include'
   });
 
   if(r.ok){
-    document.getElementById('uploadMsg').innerHTML = '<span class="text-success">Payslip uploaded</span>';
+    loadUsers();
+  } else {
+    const t = await r.text();
+    alert("Delete failed: " + t);
+  }
+}
+
+async function uploadPayslip(){
+  const fileInput = document.getElementById('payslipFile');
+  if(!fileInput.files.length){
+    document.getElementById('uploadMsg').innerText = 'Choose file';
+    return;
+  }
+
+  const fd = new FormData();
+  fd.append('username', document.getElementById('payslipUser').value);
+  fd.append('payslip', fileInput.files[0]);
+
+  const r = await fetch('/api/payslips/upload', {
+    method:'POST',
+    body: fd,
+    credentials:'include'
+  });
+
+  if(r.ok){
+    document.getElementById('uploadMsg').innerHTML = '<span class="text-success">Uploaded</span>';
     loadPayslips();
-  }else{
-    const e = await r.json();
-    document.getElementById('uploadMsg').innerText = e.error || 'Upload failed';
+  } else {
+    document.getElementById('uploadMsg').innerText = 'Upload failed';
   }
 }
 
 async function loadPayslips(){
-  const r = await fetch('/api/payslips');
+  const r = await fetch('/api/payslips', { credentials:'include' });
   const data = await r.json();
 
   const el = document.getElementById('payslipList');
@@ -179,7 +308,9 @@ async function loadPayslips(){
         <td>${p.username}</td>
         <td>${p.original_name}</td>
         <td>${p.uploaded_at}</td>
-        <td><a href="/api/payslips/${p.id}/download" class="btn btn-primary btn-sm">Download</a></td>
+        <td>
+          <a href="/api/payslips/${p.id}/download" class="btn btn-primary btn-sm">Download</a>
+        </td>
       </tr>
     `;
   });
@@ -187,6 +318,7 @@ async function loadPayslips(){
 
 loadUsers();
 loadPayslips();
+
 </script>
 
 </body>

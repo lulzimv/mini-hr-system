@@ -1,12 +1,10 @@
 services:
   minihr:
-    image: node:20-slim
+    build: .
     container_name: minihr
-    working_dir: /app
-    command: sh -c "npm install && node server.js"
     ports:
       - "5050:5050"
     volumes:
-      - ./app:/app
+      - ./hr.db:/app/hr.db
       - ./backups:/backups
     restart: always

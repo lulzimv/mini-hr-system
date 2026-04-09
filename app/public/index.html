@@ -2,62 +2,29 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Creumgroup HR</title>
+<title>Mini HR</title>
 
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.css" rel="stylesheet">
-
 <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <style>
 body { background:#f8f9fa; }
-.card{
+.card-soft{
+  border-radius:12px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.05);
   border:0;
-  box-shadow:0 4px 14px rgba(0,0,0,0.06);
-  border-radius:14px;
-}
-.avatar-chip{
-  width:36px;
-  height:36px;
-  border-radius:50%;
-  display:inline-flex;
-  align-items:center;
-  justify-content:center;
-  font-size:12px;
-  font-weight:700;
-  color:#fff;
-  margin:4px 6px 0 0;
-}
-.section-title{
-  font-size:1rem;
-  font-weight:700;
-  margin-bottom:12px;
-}
-.heatmap-cell{
-  height:18px;
-  border-radius:4px;
-  cursor:pointer;
-}
-.small-muted{
-  color:#6c757d;
-  font-size:0.9rem;
-}
-.kpi-number{
-  font-size:1.6rem;
-  font-weight:700;
 }
 </style>
-
 </head>
 
-<body>
+<body class="bg-light">
 
 <nav class="navbar navbar-dark bg-dark">
   <div class="container-fluid d-flex justify-content-between">
-    <span class="navbar-brand">Creumgroup HR</span>
+    <span class="navbar-brand">Mini HR</span>
     <div class="d-flex gap-2">
-      <a href="/admin-users.html" class="btn btn-outline-light btn-sm" id="manageUsersBtn">Manage users</a>
+      <a href="/admin-users.html" id="manageUsersBtn" class="btn btn-outline-light btn-sm" style="display:none;">Manage users</a>
       <a href="/logout" class="btn btn-outline-light btn-sm">Logout</a>
     </div>
   </div>
@@ -65,172 +32,109 @@ body { background:#f8f9fa; }
 
 <div class="container py-4">
 
-  <!-- TOP KPI ROW -->
   <div class="row g-3 mb-3">
 
     <div class="col-md-3">
-      <div class="card p-3 h-100" id="userBox"></div>
+      <div class="card card-soft p-3 h-100">
+        <h6>Welcome</h6>
+        <div id="meBox">Loading...</div>
+      </div>
     </div>
 
     <div class="col-md-3">
-      <div class="card p-3 h-100">
-        <div class="section-title">Leave balance</div>
+      <div class="card card-soft p-3 h-100">
+        <h6>Leave balance</h6>
         <div class="progress mb-2" style="height:20px;">
           <div id="leaveBar" class="progress-bar bg-success" style="width:0%"></div>
         </div>
-        <div id="leaveText">Loading...</div>
+        <div id="leaveBox">Loading...</div>
       </div>
     </div>
 
     <div class="col-md-3">
-      <div class="card p-3 h-100">
-        <div class="section-title">Today status</div>
-        <div id="todayBox">Loading...</div>
+      <div class="card card-soft p-3 h-100">
+        <h6>Today status</h6>
+        <div id="todayStatus">Loading...</div>
       </div>
     </div>
 
     <div class="col-md-3">
-      <div class="card p-3 h-100">
-        <div class="section-title">Upcoming leave</div>
-        <div id="upcomingBox">Loading...</div>
+      <div class="card card-soft p-3 h-100">
+        <h6>Upcoming leave</h6>
+        <div id="upcomingLeave">Loading...</div>
       </div>
     </div>
 
   </div>
 
-  <!-- ALERTS -->
-  <div id="conflictAlert" class="alert alert-warning d-none"></div>
+  <div class="card card-soft p-3 mb-3">
+    <h5>Request Leave</h5>
 
-  <!-- REQUEST -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h4 class="mb-3">Request Leave</h4>
-
-      <div class="row g-2">
-        <div class="col-md-3">
-          <input type="date" id="start" class="form-control">
-        </div>
-
-        <div class="col-md-3">
-          <input type="date" id="end" class="form-control">
-        </div>
-
-        <div class="col-md-3">
-          <select id="leaveType" class="form-control">
-            <option value="annual">Annual leave</option>
-            <option value="sick">Sick leave</option>
-          </select>
-        </div>
-
-        <div class="col-md-3">
-          <button onclick="requestLeave()" class="btn btn-primary w-100">Submit</button>
-        </div>
+    <div class="row g-2">
+      <div class="col-md-3">
+        <input type="date" id="start" class="form-control">
       </div>
 
-      <div id="msg" class="mt-2 text-danger"></div>
-    </div>
-  </div>
-
-  <!-- LEAVES TABLE -->
-  <div class="card mb-4">
-    <div class="card-body">
-      <h4 class="mb-3">Leave Requests</h4>
-
-      <table class="table align-middle" id="leaveTable">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>User</th>
-            <th>From</th>
-            <th>To</th>
-            <th>Days</th>
-            <th>Type</th>
-            <th>Status</th>
-            <th id="actionHead">Action</th>
-          </tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-
-    </div>
-  </div>
-
-  <!-- CALENDAR + ANALYTICS -->
-  <div class="card mb-4">
-    <div class="card-body">
-
-      <h4 class="mb-3">Leave Calendar</h4>
-      <div id="calendar"></div>
-
-      <hr class="my-4">
-
-      <h4 class="mb-3">Team Leave Analytics</h4>
-
-      <div class="row g-4">
-
-        <div class="col-md-5">
-          <div class="section-title">Monthly leave usage</div>
-          <canvas id="heatmapChart" height="180"></canvas>
-        </div>
-
-        <div class="col-md-4">
-          <div class="section-title">Team leave heatmap</div>
-          <div id="heatmapGrid"
-               style="display:grid; grid-template-columns: repeat(31, 1fr); gap:4px;">
-          </div>
-          <div class="small-muted mt-2">Last 31 days</div>
-        </div>
-
-        <div class="col-md-3">
-          <div class="section-title">Employees currently on leave</div>
-          <div id="avatarBox"></div>
-
-          <hr>
-
-          <div class="section-title">Manager workload</div>
-          <div id="managerWidget">
-            Loading...
-          </div>
-        </div>
-
+      <div class="col-md-3">
+        <input type="date" id="end" class="form-control">
       </div>
 
+      <div class="col-md-3">
+        <select id="leaveType" class="form-select">
+          <option value="annual">Annual leave</option>
+          <option value="sick">Sick leave</option>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <input type="file" id="medical" class="form-control">
+      </div>
     </div>
+
+    <div class="row mt-2">
+      <div class="col-md-3">
+        <button onclick="requestLeave()" class="btn btn-primary w-100">Submit</button>
+      </div>
+    </div>
+
+    <div id="msg" class="mt-2 text-danger"></div>
+  </div>
+
+  <div class="card card-soft p-3 mb-3">
+    <h5>Leave Requests</h5>
+
+    <table class="table table-sm align-middle">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>User</th>
+          <th>From</th>
+          <th>To</th>
+          <th>Days</th>
+          <th>Type</th>
+          <th>Status</th>
+          <th id="actionHead">Action</th>
+        </tr>
+      </thead>
+      <tbody id="leaveTable"></tbody>
+    </table>
+  </div>
+
+  <div class="card card-soft p-3 mb-3">
+    <h5>Payslips</h5>
+    <div id="payslipBox">Loading...</div>
+  </div>
+
+  <div class="card card-soft p-3">
+    <h5>Leave Calendar</h5>
+    <div id="calendar"></div>
   </div>
 
 </div>
-
-<!-- APPROVAL MODAL -->
-<div class="modal fade" id="approveModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-
-      <div class="modal-header">
-        <h5 class="modal-title">Manager decision</h5>
-        <button class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-
-      <div class="modal-body">
-        <p id="approveText"></p>
-      </div>
-
-      <div class="modal-footer">
-        <button class="btn btn-success" onclick="confirmApprove()">Approve</button>
-        <button class="btn btn-danger" onclick="confirmReject()">Reject</button>
-      </div>
-
-    </div>
-  </div>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
 let currentUser = null;
 let calendar = null;
-let decisionId = null;
-let barChart = null;
-let heatmapTooltips = [];
 
 function badgeForStatus(status){
   if(status === 'approved') return '<span class="badge bg-success">approved</span>';
@@ -238,139 +142,72 @@ function badgeForStatus(status){
   return '<span class="badge bg-danger">rejected</span>';
 }
 
-function initials(name){
-  return name
-    .split(' ')
-    .filter(Boolean)
-    .slice(0,2)
-    .map(x => x[0].toUpperCase())
-    .join('');
-}
-
-function avatarColor(name){
-  const colors = ['#0d6efd','#198754','#6f42c1','#dc3545','#fd7e14','#20c997','#6610f2','#0dcaf0'];
-  let sum = 0;
-  for(let i=0;i<name.length;i++) sum += name.charCodeAt(i);
-  return colors[sum % colors.length];
-}
-
-async function loadDashboard(){
-  const r = await fetch('/api/me');
+async function loadMe(){
+  const r = await fetch('/api/me', { credentials:'include' });
   if(!r.ok){
     window.location = '/login.html';
     return;
   }
 
-  currentUser = await r.json();
+  const me = await r.json();
+  currentUser = me;
 
-  document.getElementById("userBox").innerHTML = `
-    <h3 class="mb-2">Welcome ${currentUser.username}</h3>
-    <div class="mb-2">Role: ${currentUser.role}</div>
-    <div>Annual leave: ${currentUser.annual_leave}</div>
-  `;
+  document.getElementById("meBox").innerHTML =
+    `User: ${me.username}<br>
+     Role: ${me.role}<br>
+     Annual leave: ${me.annual_leave}`;
 
-  if(currentUser.role !== 'admin'){
+  if(me.role === 'admin'){
+    document.getElementById("manageUsersBtn").style.display = 'inline-block';
+  } else {
     document.getElementById("actionHead").style.display = 'none';
-    document.getElementById("manageUsersBtn").style.display = 'none';
   }
-
-  await loadStats();
-  await loadLeaves();
-  await loadCalendar();
-  await loadToday();
-  await loadUpcoming();
-  await loadConflictAlert();
-  await loadHeatmap();
-  await loadAvatarBox();
-  await loadManagerWidget();
 }
 
 async function loadStats(){
-  const r = await fetch('/api/stats');
+  const r = await fetch('/api/stats', { credentials:'include' });
   const s = await r.json();
 
-  const used = s.approved_days || 0;
   const total = s.annual_leave || 0;
+  const approved = s.approved_days || 0;
   const remaining = s.remaining_leave || 0;
-  const percent = total > 0 ? Math.round((used / total) * 100) : 0;
+  const percent = total > 0 ? Math.round((approved / total) * 100) : 0;
 
   document.getElementById("leaveBar").style.width = percent + "%";
   document.getElementById("leaveBar").innerText = percent + "%";
-  document.getElementById("leaveText").innerHTML =
-    `<div><strong>Approved:</strong> ${used}</div>
-     <div><strong>Remaining:</strong> ${remaining}</div>`;
-}
-
-async function loadToday(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-  const today = new Date().toISOString().slice(0,10);
-
-  const todayUsers = data.filter(x =>
-    x.status === 'approved' &&
-    today >= x.start_date &&
-    today <= x.end_date
-  );
-
-  document.getElementById("todayBox").innerHTML =
-    todayUsers.length
-      ? `<span class="text-danger fw-semibold">${todayUsers.length} on leave today</span>`
-      : `<span class="text-success fw-semibold">Working day</span>`;
-}
-
-async function loadUpcoming(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-  const today = new Date();
-
-  const upcoming = data
-    .filter(x => new Date(x.start_date) > today && x.status === 'approved')
-    .sort((a,b) => new Date(a.start_date) - new Date(b.start_date))[0];
-
-  document.getElementById("upcomingBox").innerHTML =
-    upcoming
-      ? `<div><strong>${upcoming.username}</strong></div>
-         <div>${upcoming.start_date}</div>
-         <div>${upcoming.days} day(s)</div>`
-      : `No upcoming leave`;
-}
-
-async function loadConflictAlert(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-
-  const conflictMap = {};
-  data.forEach(l => {
-    if(l.status !== 'approved' && l.status !== 'pending') return;
-    const key = `${l.start_date}_${l.end_date}`;
-    conflictMap[key] = (conflictMap[key] || 0) + 1;
-  });
-
-  const conflict = Object.entries(conflictMap).find(([_, count]) => count > 1);
-  const box = document.getElementById("conflictAlert");
-
-  if(conflict){
-    const [range, count] = conflict;
-    const [from, to] = range.split('_');
-    box.classList.remove('d-none');
-    box.innerHTML = `<strong>Leave conflict alert:</strong> ${count} requests overlap between ${from} and ${to}.`;
-  } else {
-    box.classList.add('d-none');
-  }
+  document.getElementById("leaveBox").innerHTML =
+    `Approved ${approved} / Remaining ${remaining}`;
 }
 
 async function loadLeaves(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
+  const r = await fetch('/api/leaves', { credentials:'include' });
+  const rows = await r.json();
 
-  let html = "";
+  const el = document.getElementById("leaveTable");
+  el.innerHTML = "";
 
-  if(!data.length){
-    html = `<tr><td colspan="8" class="text-center text-muted">No leave requests</td></tr>`;
+  const today = new Date().toISOString().slice(0,10);
+  let upcoming = [];
+  let onLeave = false;
+
+  if(!rows.length){
+    el.innerHTML = `<tr><td colspan="8" class="text-muted text-center">No leave requests</td></tr>`;
   }
 
-  for(const l of data){
-    html += `
+  rows.forEach(l => {
+    let actions = "";
+
+    if(currentUser && currentUser.role === 'admin' && l.status === "pending"){
+      actions = `
+        <button onclick="approve(${l.id})" class="btn btn-success btn-sm">Approve</button>
+        <button onclick="reject(${l.id})" class="btn btn-danger btn-sm">Reject</button>
+        <button onclick="deleteLeave(${l.id})" class="btn btn-dark btn-sm">Delete</button>
+      `;
+    } else if(currentUser && currentUser.role === 'admin') {
+      actions = `<button onclick="deleteLeave(${l.id})" class="btn btn-dark btn-sm">Delete</button>`;
+    }
+
+    el.innerHTML += `
       <tr>
         <td>${l.id}</td>
         <td>${l.username}</td>
@@ -379,259 +216,151 @@ async function loadLeaves(){
         <td>${l.days}</td>
         <td>${l.type || 'annual'}</td>
         <td>${badgeForStatus(l.status)}</td>
-        <td>
+        <td>${actions}</td>
+      </tr>
     `;
 
-    if(currentUser.role === 'admin' && l.status === 'pending'){
-      html += `<button class="btn btn-success btn-sm" onclick="openDecision(${l.id})">Decision</button>`;
+    if(l.status === "approved"){
+      if(today >= l.start_date && today <= l.end_date) onLeave = true;
+      if(l.start_date > today) upcoming.push(`${l.username}: ${l.start_date}`);
     }
+  });
 
-    if(currentUser.role === 'admin'){
-      html += ` <button class="btn btn-dark btn-sm ms-1" onclick="deleteLeave(${l.id})">Delete</button>`;
-    }
+  document.getElementById("todayStatus").innerHTML =
+    onLeave
+      ? '<span class="text-danger">On leave</span>'
+      : '<span class="text-success">Working</span>';
 
-    html += `</td></tr>`;
-  }
-
-  document.querySelector("#leaveTable tbody").innerHTML = html;
+  document.getElementById("upcomingLeave").innerHTML =
+    upcoming.length ? upcoming.slice(0,3).join("<br>") : 'No upcoming leave';
 }
 
-function openDecision(id){
-  decisionId = id;
-  document.getElementById("approveText").innerText = "Approve or reject this leave request?";
-  new bootstrap.Modal(document.getElementById('approveModal')).show();
+async function approve(id){
+  await fetch('/api/leave/' + id + '/approve', {
+    method:'POST',
+    credentials:'include'
+  });
+  await init();
 }
 
-async function confirmApprove(){
-  await fetch('/api/leave/' + decisionId + '/approve', { method:'POST' });
-  loadDashboard();
-}
-
-async function confirmReject(){
-  await fetch('/api/leave/' + decisionId + '/reject', { method:'POST' });
-  loadDashboard();
+async function reject(id){
+  await fetch('/api/leave/' + id + '/reject', {
+    method:'POST',
+    credentials:'include'
+  });
+  await init();
 }
 
 async function deleteLeave(id){
-  if(!confirm("Delete leave ?")) return;
-  await fetch('/api/leave/' + id + '/delete', { method:'POST' });
-  loadDashboard();
+  if(!confirm("Delete leave request?")) return;
+  await fetch('/api/leave/' + id + '/delete', {
+    method:'POST',
+    credentials:'include'
+  });
+  await init();
 }
 
 async function requestLeave(){
   const start = document.getElementById("start").value;
   const end = document.getElementById("end").value;
   const type = document.getElementById("leaveType").value;
+  const file = document.getElementById("medical").files[0];
+
+  const fd = new FormData();
+  fd.append("start_date", start);
+  fd.append("end_date", end);
+  fd.append("type", type);
+  if(file) fd.append("medical", file);
 
   const r = await fetch('/api/leave', {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      start_date:start,
-      end_date:end,
-      type:type
-    })
+    body: fd,
+    credentials:'include'
   });
 
   if(r.ok){
-    document.getElementById("msg").innerHTML = '<span class="text-success">Requested</span>';
-    loadDashboard();
+    document.getElementById("msg").innerHTML = '<span class="text-success">Leave requested</span>';
+    document.getElementById("medical").value = "";
+    await init();
   } else {
-    let e = await r.json();
-    document.getElementById("msg").innerText = e.error;
+    const e = await r.json().catch(() => ({ error: 'Request failed' }));
+    document.getElementById("msg").innerText = e.error || 'Request failed';
   }
 }
 
-async function loadCalendar(){
-  const r = await fetch('/api/leaves');
+async function loadPayslips(){
+  const r = await fetch('/api/payslips', { credentials:'include' });
   const data = await r.json();
 
-  const events = data.map(x => ({
-    title: x.username + " (" + x.status + ")",
-    start: x.start_date,
-    end: addOneDay(x.end_date),
-    color: x.status === 'approved' ? 'green' : x.status === 'pending' ? 'orange' : 'red'
+  const box = document.getElementById("payslipBox");
+
+  if(!data.length){
+    box.innerHTML = '<div class="text-muted">No payslips</div>';
+    return;
+  }
+
+  let html = '<ul class="mb-0">';
+  data.forEach(p => {
+    html += `<li><a href="/api/payslips/${p.id}/download">${p.original_name}</a> <small class="text-muted">(${p.uploaded_at})</small></li>`;
+  });
+  html += '</ul>';
+
+  box.innerHTML = html;
+}
+
+function addOneDay(dateStr){
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() + 1);
+  return d.toISOString().slice(0,10);
+}
+
+async function loadCalendar(){
+
+  // ⭐ merr leave events
+  const r = await fetch('/api/leaves', { credentials:'include' });
+  const rows = await r.json();
+
+  const leaveEvents = rows.map(l => ({
+    title: `${l.username} (${l.status})`,
+    start: l.start_date,
+    end: addOneDay(l.end_date),
+    color: l.status === 'approved' ? 'green' : l.status === 'pending' ? 'orange' : 'red'
   }));
+
+  // ⭐ merr holidays
+  const hr = await fetch('/api/holidays', { credentials:'include' });
+  const holidays = await hr.json();
+
+  const holidayEvents = holidays.map(h => ({
+    title: 'Official Holiday',
+    start: h.date,
+	display: 'background',
+    backgroundColor: '#ff3b3b'
+  }));
+
+  // ⭐ merge events
+  const allEvents = [...leaveEvents, ...holidayEvents];
 
   if(calendar) calendar.destroy();
 
   calendar = new FullCalendar.Calendar(document.getElementById('calendar'), {
-    initialView:'dayGridMonth',
-    height:500,
-    events:events
+    initialView: 'dayGridMonth',
+    height: 600,
+    events: allEvents
   });
 
   calendar.render();
 }
 
-function addOneDay(d){
-  let x = new Date(d);
-  x.setDate(x.getDate() + 1);
-  return x.toISOString().slice(0,10);
+async function init(){
+  await loadMe();
+  await loadStats();
+  await loadLeaves();
+  await loadPayslips();
+  await loadCalendar();
 }
 
-async function loadHeatmap(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-
-  /* BAR CHART */
-  const months = {};
-  data.forEach(l => {
-    if(l.status !== 'approved') return;
-    const m = l.start_date.substring(0,7);
-    months[m] = (months[m] || 0) + l.days;
-  });
-
-  const labels = Object.keys(months).sort();
-  const values = labels.map(m => months[m]);
-
-  const ctx = document.getElementById('heatmapChart');
-  if(ctx){
-    if(barChart) barChart.destroy();
-    barChart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Leave days per month',
-          data: values,
-          backgroundColor: '#4e73df',
-          borderRadius: 6
-        }]
-      },
-      options: {
-        responsive:true,
-        plugins:{ legend:{ display:false } },
-        scales:{ y:{ beginAtZero:true } }
-      }
-    });
-  }
-
-  /* GRID HEATMAP */
-  const grid = document.getElementById("heatmapGrid");
-  if(!grid) return;
-
-  heatmapTooltips.forEach(t => t.dispose());
-  heatmapTooltips = [];
-
-  grid.innerHTML = "";
-  const days = {};
-
-  data.forEach(l => {
-    if(l.status !== 'approved') return;
-
-    let start = new Date(l.start_date);
-    const end = new Date(l.end_date);
-
-    while(start <= end){
-      const key = start.toISOString().slice(0,10);
-      if(!days[key]) days[key] = [];
-      days[key].push(l.username);
-      start.setDate(start.getDate() + 1);
-    }
-  });
-
-  const today = new Date();
-  today.setDate(today.getDate() - 30);
-
-  for(let i=0;i<31;i++){
-    const d = new Date(today);
-    d.setDate(today.getDate() + i);
-
-    const key = d.toISOString().slice(0,10);
-    const names = days[key] || [];
-    const count = names.length;
-
-    let color = "#ebedf0";
-    if(count === 1) color = "#9be9a8";
-    if(count === 2) color = "#40c463";
-    if(count >= 3) color = "#216e39";
-
-    const cell = document.createElement("div");
-    cell.className = "heatmap-cell";
-    cell.style.background = color;
-    cell.setAttribute("data-bs-toggle", "tooltip");
-    cell.setAttribute("data-bs-placement", "top");
-    cell.setAttribute(
-      "title",
-      names.length
-        ? `${key}\n${names.join(', ')}`
-        : `${key}\nNo leave`
-    );
-
-    grid.appendChild(cell);
-  }
-
-  document.querySelectorAll('#heatmapGrid [data-bs-toggle="tooltip"]').forEach(el => {
-    heatmapTooltips.push(new bootstrap.Tooltip(el));
-  });
-}
-
-async function loadAvatarBox(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-  const today = new Date().toISOString().slice(0,10);
-
-  const onLeave = data.filter(x =>
-    x.status === 'approved' &&
-    today >= x.start_date &&
-    today <= x.end_date
-  );
-
-  const box = document.getElementById("avatarBox");
-
-  if(!onLeave.length){
-    box.innerHTML = `<div class="small-muted">Nobody currently on leave</div>`;
-    return;
-  }
-
-  let html = "";
-  onLeave.forEach(x => {
-    html += `
-      <span class="avatar-chip"
-            style="background:${avatarColor(x.username)}"
-            data-bs-toggle="tooltip"
-            title="${x.username}">
-        ${initials(x.username)}
-      </span>
-    `;
-  });
-
-  box.innerHTML = html;
-
-  document.querySelectorAll('#avatarBox [data-bs-toggle="tooltip"]').forEach(el => {
-    new bootstrap.Tooltip(el);
-  });
-}
-
-async function loadManagerWidget(){
-  const r = await fetch('/api/leaves');
-  const data = await r.json();
-  const today = new Date().toISOString().slice(0,10);
-
-  const pending = data.filter(x => x.status === 'pending').length;
-  const approvedToday = data.filter(x =>
-    x.status === 'approved' &&
-    today >= x.start_date &&
-    today <= x.end_date
-  ).length;
-
-  const next7 = new Date();
-  next7.setDate(next7.getDate() + 7);
-
-  const upcoming7 = data.filter(x => {
-    const sd = new Date(x.start_date);
-    return x.status === 'approved' && sd <= next7 && sd >= new Date();
-  }).length;
-
-  document.getElementById("managerWidget").innerHTML = `
-    <div class="mb-2"><strong>Pending approvals:</strong> ${pending}</div>
-    <div class="mb-2"><strong>Approved active today:</strong> ${approvedToday}</div>
-    <div><strong>Upcoming 7 days:</strong> ${upcoming7}</div>
-  `;
-}
-
-loadDashboard();
+init();
 </script>
 
 </body>
