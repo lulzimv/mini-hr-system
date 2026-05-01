@@ -1,1 +1,19 @@
-
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mini-hr
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mini-hr
+  template:
+    metadata:
+      labels:
+        app: mini-hr
+    spec:
+      containers:
+      - name: mini-hr
+        image: nginx   # temporary test
+        ports:
+        - containerPort: 80
