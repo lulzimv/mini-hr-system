@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: static-html
+data:
+  index.html: |
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Lulzim DevOps Lab</title>
+    </head>
+    <body>
+      <h1>🚀 Deployed with ArgoCD</h1>
+      <p>Kubernetes + GitOps in action</p>
+    </body>
+    </html>
