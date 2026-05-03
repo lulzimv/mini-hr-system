@@ -11,6 +11,8 @@ spec:
     metadata:
       labels:
         app: static-site
+      annotations:
+        configmap-version: "1"
     spec:
       containers:
       - name: nginx
